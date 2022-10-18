@@ -8,6 +8,7 @@ url="https://github.com/bpetlert/xhci_hcd-rebind"
 license=('MIT')
 depends=('systemd')
 makedepends=(cargo)
+options=(!lto)
 provides=("${pkgname}")
 conflicts=("${pkgname}")
 
