@@ -39,14 +39,13 @@ impl Monitor {
             .all_namespaces(true)
             .open()?;
 
+        // Filter
+        journal.match_add("_TRANSPORT", "kernel")?; // Only kernel message
+        journal.match_add("PRIORITY", "4")?; // Only warning message
+
         // Go to end of journal
         journal.seek_tail()?;
         while journal.next_skip(1)? > 0 {}
-
-        // Filter
-        // journal.match_add("_BOOT_ID", "1")?; // Only current boot log message
-        journal.match_add("_TRANSPORT", "kernel")?; // Only kernel message
-        journal.match_add("PRIORITY", "4")?; // Only warning message
 
         debug!("Notify systemd that we are ready :)");
         if !daemon::notify(false, vec![("READY", "1")].iter())? {
