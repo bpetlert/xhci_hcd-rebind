@@ -54,11 +54,10 @@ impl Monitor {
         }
 
         let notify_msg = format!("Start monitor xhci_hcd failure on bus {}", self.bus_id);
-        debug!(notify_msg);
         if !daemon::notify(false, vec![("STATUS", &notify_msg)].iter())? {
             bail!("Cannot notify systemd, STATUS={notify_msg}");
         }
-
+        info!("{notify_msg}");
         loop {
             if let Some(entry) = journal.await_next_entry(None)? {
                 if let Some(log_msg) = entry.get("MESSAGE") {
