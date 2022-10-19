@@ -11,6 +11,7 @@ makedepends=(cargo)
 options=(!lto)
 provides=("${pkgname}")
 conflicts=("${pkgname}")
+backup=(etc/systemd/xhci_hcd-rebind.toml)
 
 # Build from local directory
 source=()

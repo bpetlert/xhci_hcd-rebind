@@ -11,6 +11,7 @@ makedepends=(cargo)
 options=(!lto)
 provides=("${pkgname}")
 conflicts=("${pkgname}")
+backup=(etc/systemd/xhci_hcd-rebind.toml)
 
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/bpetlert/${pkgname}/archive/${pkgver}.tar.gz")
 sha256sums=('')
