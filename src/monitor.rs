@@ -60,86 +60,87 @@ impl Monitor {
         loop {
             if let Some(entry) = journal.await_next_entry(None)? {
                 if let Some(log_msg) = entry.get("MESSAGE") {
-                    if self.is_fail(log_msg)? {
-                        // Run pre unbind command
-                        if !self.pre_unbind_cmd.is_empty() {
-                            info!("Run pre unbind command {}", self.pre_unbind_cmd);
-                            let reader = cmd!(self.pre_unbind_cmd.as_str())
-                                .stderr_to_stdout()
-                                .reader()?;
-                            let lines = BufReader::new(reader)
-                                .lines()
-                                .map(|line| line.unwrap())
-                                .collect::<Vec<String>>()
-                                .join("\n");
-                            info!("{}", lines);
-                        }
-
-                        // Unbind bus
-                        match fs::OpenOptions::new()
-                            .write(true)
-                            .append(true)
-                            .open(UNBIND_BUS_FILE)
-                        {
-                            Ok(mut unbind_bus) => {
-                                if let Err(err) = unbind_bus.write_all(self.bus_id.as_bytes()) {
-                                    warn!("{err}");
-                                    continue;
-                                } else {
-                                    info!("Unbind bus {}", self.bus_id);
-                                }
-                            }
-                            Err(err) => {
-                                warn!("{err}");
-                                continue;
-                            }
-                        };
-
-                        // Rebind bus
-                        std::thread::sleep(std::time::Duration::from_secs(self.bus_rebind_delay));
-                        match fs::OpenOptions::new()
-                            .write(true)
-                            .append(true)
-                            .open(BIND_BUS_FILE)
-                        {
-                            Ok(mut bind_bus) => {
-                                if let Err(err) = bind_bus.write_all(self.bus_id.as_bytes()) {
-                                    warn!("{err}");
-                                    continue;
-                                } else {
-                                    info!("Rebind bus {}", self.bus_id);
-                                }
-                            }
-                            Err(err) => {
-                                warn!("{err}");
-                                continue;
-                            }
-                        }
-                        info!("Successfully rebind bus {}", self.bus_id);
-
-                        // Run post rebind command
-                        if !self.post_rebind_cmd.is_empty() {
-                            info!("Run post rebind command {}", self.post_rebind_cmd);
-                            let reader = cmd!(self.post_rebind_cmd.as_str())
-                                .stderr_to_stdout()
-                                .reader()?;
-                            let lines = BufReader::new(reader)
-                                .lines()
-                                .map(|line| line.unwrap())
-                                .collect::<Vec<String>>()
-                                .join("\n");
-                            info!("{}", lines);
-                        }
-
-                        // Delay for next bus failure checking
-                        info!(
-                            "Delay {} seconds for next bus failure checking",
-                            self.next_fail_check_delay
-                        );
-                        std::thread::sleep(std::time::Duration::from_secs(
-                            self.next_fail_check_delay,
-                        ));
+                    if !self.is_fail(log_msg)? {
+                        continue;
                     }
+
+                    // Run pre unbind command
+                    if !self.pre_unbind_cmd.is_empty() {
+                        info!("Run pre unbind command {}", self.pre_unbind_cmd);
+                        let reader = cmd!(self.pre_unbind_cmd.as_str())
+                            .stderr_to_stdout()
+                            .reader()?;
+                        let lines = BufReader::new(reader)
+                            .lines()
+                            .map(|line| line.unwrap())
+                            .collect::<Vec<String>>()
+                            .join("\n");
+                        info!("{}", lines);
+                    }
+
+                    // Unbind bus
+                    match fs::OpenOptions::new()
+                        .write(true)
+                        .append(true)
+                        .open(UNBIND_BUS_FILE)
+                    {
+                        Ok(mut unbind_bus) => {
+                            if let Err(err) = unbind_bus.write_all(self.bus_id.as_bytes()) {
+                                warn!("{err}");
+                                continue;
+                            } else {
+                                info!("Unbind bus {}", self.bus_id);
+                            }
+                        }
+                        Err(err) => {
+                            warn!("{err}");
+                            continue;
+                        }
+                    };
+                    info!("Successfully unbind bus {}", self.bus_id);
+
+                    // Rebind bus
+                    std::thread::sleep(std::time::Duration::from_secs(self.bus_rebind_delay));
+                    match fs::OpenOptions::new()
+                        .write(true)
+                        .append(true)
+                        .open(BIND_BUS_FILE)
+                    {
+                        Ok(mut bind_bus) => {
+                            if let Err(err) = bind_bus.write_all(self.bus_id.as_bytes()) {
+                                warn!("{err}");
+                                continue;
+                            } else {
+                                info!("Rebind bus {}", self.bus_id);
+                            }
+                        }
+                        Err(err) => {
+                            warn!("{err}");
+                            continue;
+                        }
+                    }
+                    info!("Successfully rebind bus {}", self.bus_id);
+
+                    // Run post rebind command
+                    if !self.post_rebind_cmd.is_empty() {
+                        info!("Run post rebind command {}", self.post_rebind_cmd);
+                        let reader = cmd!(self.post_rebind_cmd.as_str())
+                            .stderr_to_stdout()
+                            .reader()?;
+                        let lines = BufReader::new(reader)
+                            .lines()
+                            .map(|line| line.unwrap())
+                            .collect::<Vec<String>>()
+                            .join("\n");
+                        info!("{}", lines);
+                    }
+
+                    // Delay for next bus failure checking
+                    info!(
+                        "Delay {} seconds for next bus failure checking",
+                        self.next_fail_check_delay
+                    );
+                    std::thread::sleep(std::time::Duration::from_secs(self.next_fail_check_delay));
                 }
             }
         }
