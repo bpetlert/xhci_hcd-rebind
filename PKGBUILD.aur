@@ -2,7 +2,7 @@
 pkgname=xhci_hcd-rebind
 pkgver=0.1.0
 pkgrel=1
-pkgdesc="A serverice for monitor xhci_hcd bus, restart if bus failure"
+pkgdesc="A service for monitoring xhci_hcd bus, restart if bus failure"
 arch=('x86_64')
 url="https://github.com/bpetlert/xhci_hcd-rebind"
 license=('MIT')
@@ -33,7 +33,7 @@ package() {
 
   install -Dm644 "xhci_hcd-rebind.service" "$pkgdir/usr/lib/systemd/system/xhci_hcd-rebind.service"
 
-  install -Dm644 "xhci_hcd-rebind.conf" "$pkgdir/etc/systemd/xhci_hcd-rebind.conf"
+  install -Dm644 "xhci_hcd-rebind.toml" "$pkgdir/etc/systemd/xhci_hcd-rebind.toml"
 
   install -Dm644 "README.adoc" "$pkgdir/usr/share/doc/${pkgname}/README.adoc"
   install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/${pkgname}/LICENSE"

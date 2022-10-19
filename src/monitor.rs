@@ -1,5 +1,10 @@
-use anyhow::bail;
-use std::{fs, io::Write};
+use anyhow::{bail, Result};
+use config::{builder::DefaultState, ConfigBuilder};
+use duct::cmd;
+use std::{
+    fs,
+    io::{BufRead, BufReader, Write},
+};
 use systemd::{daemon, journal, Journal};
 use tracing::{debug, info, warn};
 
@@ -10,18 +15,23 @@ pub struct Monitor {
     bus_id: String,
     bus_rebind_delay: u64,
     next_fail_check_delay: u64,
+    pre_unbind_cmd: String,
+    post_rebind_cmd: String,
 }
 
 impl Monitor {
-    pub fn new(bus_id: &str, bus_rebind_delay: u64, next_fail_check_delay: u64) -> Self {
-        Self {
-            bus_id: bus_id.to_string(),
-            bus_rebind_delay,
-            next_fail_check_delay,
-        }
+    pub fn new(settings: ConfigBuilder<DefaultState>) -> Result<Self> {
+        let settings = settings.build()?;
+        Ok(Self {
+            bus_id: settings.get::<String>("bus-id")?,
+            bus_rebind_delay: settings.get::<u64>("bus-rebind-delay")?,
+            next_fail_check_delay: settings.get::<u64>("next-fail-check-delay")?,
+            pre_unbind_cmd: settings.get::<String>("pre-unbind-cmd")?,
+            post_rebind_cmd: settings.get::<String>("post-rebind-cmd")?,
+        })
     }
 
-    pub fn listen(self) -> anyhow::Result<()> {
+    pub fn listen(self) -> Result<()> {
         let mut journal: Journal = journal::OpenOptions::default()
             .system(true)
             .local_only(true)
@@ -53,6 +63,20 @@ impl Monitor {
             if let Some(entry) = journal.await_next_entry(None)? {
                 if let Some(log_msg) = entry.get("MESSAGE") {
                     if self.is_fail(log_msg)? {
+                        // Run pre unbind command
+                        if !self.pre_unbind_cmd.is_empty() {
+                            info!("Run pre unbind command {}", self.pre_unbind_cmd);
+                            let reader = cmd!(self.pre_unbind_cmd.as_str())
+                                .stderr_to_stdout()
+                                .reader()?;
+                            let lines = BufReader::new(reader)
+                                .lines()
+                                .map(|line| line.unwrap())
+                                .collect::<Vec<String>>()
+                                .join("\n");
+                            info!("{}", lines);
+                        }
+
                         // Unbind bus
                         match fs::OpenOptions::new()
                             .write(true)
@@ -93,8 +117,21 @@ impl Monitor {
                                 continue;
                             }
                         }
-
                         info!("Successfully rebind bus {}", self.bus_id);
+
+                        // Run post rebind command
+                        if !self.post_rebind_cmd.is_empty() {
+                            info!("Run post rebind command {}", self.post_rebind_cmd);
+                            let reader = cmd!(self.post_rebind_cmd.as_str())
+                                .stderr_to_stdout()
+                                .reader()?;
+                            let lines = BufReader::new(reader)
+                                .lines()
+                                .map(|line| line.unwrap())
+                                .collect::<Vec<String>>()
+                                .join("\n");
+                            info!("{}", lines);
+                        }
 
                         // Delay for next bus failure checking
                         info!(
@@ -110,7 +147,7 @@ impl Monitor {
         }
     }
 
-    fn is_fail(&self, log_msg: &str) -> anyhow::Result<bool> {
+    fn is_fail(&self, log_msg: &str) -> Result<bool> {
         let fail_regex = {
             static RE: once_cell::sync::OnceCell<regex::Regex> = once_cell::sync::OnceCell::new();
             RE.get_or_init(|| {
@@ -132,13 +169,18 @@ impl Monitor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::settings;
 
     #[test]
     fn test_xhci_hcd_fail_log() {
         let journal_log1 = "xhci_hcd 0000:04:00.0: WARN: TRB error for slot 1 ep 5 on endpoint";
         let journal_log2 = "xhci_hcd 0000:04:00.0: WARN waiting for error on ep to be cleared";
 
-        let mon = Monitor::new("0000:04:00.0", 3, 300);
+        let settings = settings::load_config(None)
+            .unwrap()
+            .set_override("bus-id", "0000:04:00.0")
+            .unwrap();
+        let mon = Monitor::new(settings).unwrap();
         assert!(!mon.is_fail(journal_log1).unwrap());
         assert!(mon.is_fail(journal_log2).unwrap());
     }

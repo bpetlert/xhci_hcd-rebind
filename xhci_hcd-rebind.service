@@ -5,8 +5,7 @@ Description=xhci_hcd bus failure monitor
 Type=notify
 Restart=on-failure
 RestartSec=30s
-EnvironmentFile=/etc/systemd/xhci_hcd-rebind.conf
-ExecStart=/usr/bin/xhci_hcd-rebind --bus-id $BUS_ID --bus-rebind-delay $BUS_REBIND_DELAY --next-fail-check-delay $NEXT_FAIL_CHECK_DELAY
+ExecStart=/usr/bin/xhci_hcd-rebind
 
 [Install]
 WantedBy=multi-user.target

@@ -2,7 +2,7 @@
 pkgname=xhci_hcd-rebind
 pkgver=0.1.0
 pkgrel=1
-pkgdesc="A service for monitor xhci_hcd bus, restart if bus failure"
+pkgdesc="A service for monitoring xhci_hcd bus, restart if bus failure"
 arch=('x86_64')
 url="https://github.com/bpetlert/xhci_hcd-rebind"
 license=('MIT')
@@ -17,17 +17,17 @@ source=()
 
 # Using the most recent annotated tag reachable from the last commit.
 pkgver() {
-  cd "$startdir"
+  cd "${startdir}"
   git describe --long | sed 's/\([^-]*-g\)/r\1/;s/-/./g'
 }
 
 prepare() {
-  cd "$startdir"
+  cd "${startdir}"
   cargo fetch --locked --target "$CARCH-unknown-linux-gnu"
 }
 
 build() {
-  cd "$startdir"
+  cd "${startdir}"
 
   export RUSTUP_TOOLCHAIN=stable
 
@@ -42,10 +42,10 @@ package() {
   cd "$srcdir"
   install -Dm755 "target/release/xhci_hcd-rebind" "$pkgdir/usr/bin/xhci_hcd-rebind"
 
-  install -Dm644 "$startdir/xhci_hcd-rebind.service" "$pkgdir/usr/lib/systemd/system/xhci_hcd-rebind.service"
+  install -Dm644 "${startdir}/xhci_hcd-rebind.service" "$pkgdir/usr/lib/systemd/system/xhci_hcd-rebind.service"
 
-  install -Dm644 "$startdir/xhci_hcd-rebind.conf" "$pkgdir/etc/systemd/xhci_hcd-rebind.conf"
+  install -Dm644 "${startdir}/xhci_hcd-rebind.toml" "$pkgdir/etc/systemd/xhci_hcd-rebind.toml"
 
-  install -Dm644 "$startdir/README.adoc" "$pkgdir/usr/share/doc/${pkgname}/README.adoc"
-  install -Dm644 "$startdir/LICENSE" "$pkgdir/usr/share/licenses/${pkgname}/LICENSE"
+  install -Dm644 "${startdir}/README.adoc" "$pkgdir/usr/share/doc/${pkgname}/README.adoc"
+  install -Dm644 "${startdir}/LICENSE" "$pkgdir/usr/share/licenses/${pkgname}/LICENSE"
 }

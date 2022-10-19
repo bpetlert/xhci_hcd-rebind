@@ -1,0 +1,26 @@
+# Use `lspci -kD` to find bus id of xhci_pci
+# e.g.
+#   ...
+#   0000:04:00.0 USB controller: NEC Corporation uPD720200 USB 3.0 Host Controller (rev 04)
+#           Subsystem: Dell Device 0446
+#           Kernel driver in use: xhci_hcd
+#           Kernel modules: xhci_pci
+#   ...
+#
+# bus-id = "0000:04:00.0"
+
+# Bus rebind delay (seconds)
+#
+# bus-rebind-delay = 3
+
+# Next bus fail check delay (seconds)
+#
+# next-fail-check-delay = 300
+
+# Command to run once after bus failure is found (run before unbind bus)
+#
+# pre-unbind-cmd = "/usr/local/bin/xhci_hcd-rebind-sysinfo.sh"
+
+# Command to run once after rebind bus
+#
+# post-rebind-cmd = ""

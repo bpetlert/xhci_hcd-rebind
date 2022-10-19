@@ -1,6 +1,7 @@
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 use clap::Parser;
 use mimalloc::MiMalloc;
+use std::collections::HashMap;
 use tracing::debug;
 use tracing_subscriber::EnvFilter;
 
@@ -9,26 +10,35 @@ static GLOBAL: MiMalloc = MiMalloc;
 
 mod args;
 mod monitor;
+mod settings;
 
 use crate::{args::Arguments, monitor::Monitor};
 
-fn main() -> anyhow::Result<()> {
+fn main() -> Result<()> {
     let arguments = Arguments::parse();
     init_log().context("Failed to initialize logging")?;
     debug!("Run with {:?}", arguments);
 
-    if let Some(bus_id) = arguments.bus_id {
-        Monitor::new(
-            &bus_id,
-            arguments.bus_rebind_delay,
-            arguments.next_fail_check_delay,
-        )
-        .listen()?;
-    } else {
-        return Err(anyhow!("--bus-id <BUS_ID> was missing"));
+    if !arguments.config_file.exists() {
+        bail!(
+            "Configuration file '{}' does not exist.",
+            arguments
+                .config_file
+                .to_str()
+                .expect("path of configuration file")
+        );
     }
 
-    Ok(())
+    let settings = settings::load_config(Some(arguments.config_file))?;
+    debug!(
+        "Run with configuration {:?}",
+        settings
+            .build_cloned()?
+            .try_deserialize::<HashMap<String, String>>()
+            .unwrap()
+    );
+
+    Monitor::new(settings)?.listen()
 }
 
 fn init_log() -> Result<()> {

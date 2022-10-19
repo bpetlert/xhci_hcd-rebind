@@ -1,8 +1,9 @@
 @_default:
   just --list
 
-run +ARGS='':
-  cargo run -- {{ARGS}}
+# Run with local configuration file
+run-debug-default:
+  RUST_BACKTRACE=1 RUST_LOG=xhci_hcd_rebind=debug cargo run -- --config-file ./xhci_hcd-rebind.toml
 
 # Run with debug log
 run-debug +ARGS='':
