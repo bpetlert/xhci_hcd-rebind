@@ -44,7 +44,7 @@ impl Monitor {
         while journal.next_skip(1)? > 0 {}
 
         // Filter
-        journal.match_add("_BOOT_ID", "1")?; // Only current boot log message
+        // journal.match_add("_BOOT_ID", "1")?; // Only current boot log message
         journal.match_add("_TRANSPORT", "kernel")?; // Only kernel message
         journal.match_add("PRIORITY", "4")?; // Only warning message
 
