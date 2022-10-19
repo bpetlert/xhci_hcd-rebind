@@ -9,13 +9,10 @@ pub fn load_config(config_file: Option<PathBuf>) -> Result<ConfigBuilder<Default
         .set_default("pre-unbind-cmd", "")?
         .set_default("post-rebind-cmd", "")?;
 
-    if let Some(config_file) = config_file {
+    if let Some(mut config_file) = config_file {
+        config_file.set_extension("");
         settings = settings.add_source(config::File::new(
-            config_file
-                .file_stem()
-                .expect("basename of config file")
-                .to_str()
-                .unwrap(),
+            config_file.to_str().unwrap(),
             FileFormat::Toml,
         ));
     }
