@@ -58,6 +58,7 @@ impl Monitor {
         }
         info!("{notify_msg}");
         loop {
+            info!("Wait for xhci_hcd error...");
             if let Some(entry) = journal.await_next_entry(None)? {
                 if let Some(log_msg) = entry.get("MESSAGE") {
                     if !self.is_fail(log_msg)? {
@@ -68,87 +69,41 @@ impl Monitor {
                     // Run pre unbind command
                     if !self.pre_unbind_cmd.is_empty() {
                         info!("Run pre unbind command {}", self.pre_unbind_cmd);
-                        match cmd!(self.pre_unbind_cmd.as_str())
-                            .stderr_to_stdout()
-                            .reader()
-                        {
-                            Ok(reader) => {
-                                let lines = BufReader::new(reader)
-                                    .lines()
-                                    .filter_map(Result::ok)
-                                    .collect::<Vec<String>>()
-                                    .join("\n");
-                                info!("{}", lines);
-                            }
-                            Err(err) => warn!("Failed to execute {}, {err}", self.pre_unbind_cmd),
+                        if let Err(err) = self.run_cmd(&self.pre_unbind_cmd) {
+                            warn!("Failed to execute {}, {err}", self.pre_unbind_cmd);
                         }
                     }
 
                     // Unbind bus
-                    match fs::OpenOptions::new()
-                        .write(true)
-                        .append(true)
-                        .open(UNBIND_BUS_FILE)
-                    {
-                        Ok(mut unbind_bus) => {
-                            if let Err(err) = unbind_bus.write_all(self.bus_id.as_bytes()) {
-                                warn!("{err}");
-                                continue;
-                            } else {
-                                info!("Unbind bus {}", self.bus_id);
-                            }
-                        }
-                        Err(err) => {
-                            warn!("{err}");
-                            continue;
-                        }
-                    };
-                    info!("Successfully unbind bus {}", self.bus_id);
+                    info!("Try to unbind bus {}", self.bus_id);
+                    if let Err(err) = self.write_sysfs(UNBIND_BUS_FILE, &self.bus_id) {
+                        warn!("{err}");
+                        continue;
+                    } else {
+                        info!("Successfully unbind bus {}", self.bus_id);
+                    }
 
                     // Rebind bus
                     std::thread::sleep(std::time::Duration::from_secs(self.bus_rebind_delay));
-                    match fs::OpenOptions::new()
-                        .write(true)
-                        .append(true)
-                        .open(BIND_BUS_FILE)
-                    {
-                        Ok(mut bind_bus) => {
-                            if let Err(err) = bind_bus.write_all(self.bus_id.as_bytes()) {
-                                warn!("{err}");
-                                continue;
-                            } else {
-                                info!("Rebind bus {}", self.bus_id);
-                            }
-                        }
-                        Err(err) => {
-                            warn!("{err}");
-                            continue;
-                        }
+                    info!("Try to rebind bus {}", self.bus_id);
+                    if let Err(err) = self.write_sysfs(BIND_BUS_FILE, &self.bus_id) {
+                        warn!("{err}");
+                        continue;
+                    } else {
+                        info!("Successfully rebind bus {}", self.bus_id);
                     }
-                    info!("Successfully rebind bus {}", self.bus_id);
 
                     // Run post rebind command
                     if !self.post_rebind_cmd.is_empty() {
                         info!("Run post rebind command {}", self.post_rebind_cmd);
-                        match cmd!(self.post_rebind_cmd.as_str())
-                            .stderr_to_stdout()
-                            .reader()
-                        {
-                            Ok(reader) => {
-                                let lines = BufReader::new(reader)
-                                    .lines()
-                                    .filter_map(Result::ok)
-                                    .collect::<Vec<String>>()
-                                    .join("\n");
-                                info!("{}", lines);
-                            }
-                            Err(err) => warn!("Failed to execute {}, {err}", self.post_rebind_cmd),
+                        if let Err(err) = self.run_cmd(&self.post_rebind_cmd) {
+                            warn!("Failed to execute {}, {err}", self.post_rebind_cmd);
                         }
                     }
 
                     // Delay for next bus failure checking
                     info!(
-                        "Delay {} seconds for next bus failure checking",
+                        "Delay {} seconds for next bus failure checking...",
                         self.next_fail_check_delay
                     );
                     std::thread::sleep(std::time::Duration::from_secs(self.next_fail_check_delay));
@@ -173,6 +128,35 @@ impl Monitor {
         };
 
         Ok(fail_regex.is_match(log_msg))
+    }
+
+    fn run_cmd(&self, cmd: &str) -> Result<()> {
+        match cmd!(cmd).stderr_to_stdout().reader() {
+            Ok(reader) => {
+                let lines = BufReader::new(reader)
+                    .lines()
+                    .filter_map(Result::ok)
+                    .collect::<Vec<String>>()
+                    .join("\n");
+                info!("{}", lines);
+                Ok(())
+            }
+            Err(err) => bail!("Failed to execute {cmd}, {err}"),
+        }
+    }
+
+    fn write_sysfs(&self, path: &str, value: &str) -> Result<()> {
+        match fs::OpenOptions::new().write(true).append(true).open(path) {
+            Ok(mut fs) => {
+                if let Err(err) = fs.write_all(value.as_bytes()) {
+                    bail!("{err}");
+                }
+            }
+            Err(err) => {
+                bail!("{err}");
+            }
+        };
+        Ok(())
     }
 }
 
