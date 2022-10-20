@@ -3,6 +3,7 @@ Description=xhci_hcd bus failure monitor
 
 [Service]
 Type=notify
+User=root
 Restart=on-failure
 RestartSec=30s
 ExecStart=/usr/bin/xhci_hcd-rebind

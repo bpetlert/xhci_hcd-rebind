@@ -63,19 +63,25 @@ impl Monitor {
                     if !self.is_fail(log_msg)? {
                         continue;
                     }
+                    info!("xhci_hcd failed, {log_msg}");
 
                     // Run pre unbind command
                     if !self.pre_unbind_cmd.is_empty() {
                         info!("Run pre unbind command {}", self.pre_unbind_cmd);
-                        let reader = cmd!(self.pre_unbind_cmd.as_str())
+                        match cmd!(self.pre_unbind_cmd.as_str())
                             .stderr_to_stdout()
-                            .reader()?;
-                        let lines = BufReader::new(reader)
-                            .lines()
-                            .map(|line| line.unwrap())
-                            .collect::<Vec<String>>()
-                            .join("\n");
-                        info!("{}", lines);
+                            .reader()
+                        {
+                            Ok(reader) => {
+                                let lines = BufReader::new(reader)
+                                    .lines()
+                                    .filter_map(Result::ok)
+                                    .collect::<Vec<String>>()
+                                    .join("\n");
+                                info!("{}", lines);
+                            }
+                            Err(err) => warn!("Failed to execute {}, {err}", self.pre_unbind_cmd),
+                        }
                     }
 
                     // Unbind bus
@@ -124,15 +130,20 @@ impl Monitor {
                     // Run post rebind command
                     if !self.post_rebind_cmd.is_empty() {
                         info!("Run post rebind command {}", self.post_rebind_cmd);
-                        let reader = cmd!(self.post_rebind_cmd.as_str())
+                        match cmd!(self.post_rebind_cmd.as_str())
                             .stderr_to_stdout()
-                            .reader()?;
-                        let lines = BufReader::new(reader)
-                            .lines()
-                            .map(|line| line.unwrap())
-                            .collect::<Vec<String>>()
-                            .join("\n");
-                        info!("{}", lines);
+                            .reader()
+                        {
+                            Ok(reader) => {
+                                let lines = BufReader::new(reader)
+                                    .lines()
+                                    .filter_map(Result::ok)
+                                    .collect::<Vec<String>>()
+                                    .join("\n");
+                                info!("{}", lines);
+                            }
+                            Err(err) => warn!("Failed to execute {}, {err}", self.post_rebind_cmd),
+                        }
                     }
 
                     // Delay for next bus failure checking
