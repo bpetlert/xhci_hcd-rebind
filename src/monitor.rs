@@ -58,7 +58,6 @@ impl Monitor {
         }
         info!("{notify_msg}");
         loop {
-            info!("Wait for xhci_hcd error...");
             if let Some(entry) = journal.await_next_entry(None)? {
                 if let Some(log_msg) = entry.get("MESSAGE") {
                     if !self.is_fail(log_msg)? {
@@ -107,6 +106,7 @@ impl Monitor {
                         self.next_fail_check_delay
                     );
                     std::thread::sleep(std::time::Duration::from_secs(self.next_fail_check_delay));
+                    info!("Wait for next xhci_hcd error...");
                 }
             }
         }
