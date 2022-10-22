@@ -1,22 +1,20 @@
 use anyhow::{bail, Result};
 use config::{builder::DefaultState, ConfigBuilder};
-use duct::cmd;
-use std::{
-    fs,
-    io::{BufRead, BufReader, Write},
-};
+use std::{fs, io::Write, process::Command, time::Duration};
 use systemd::{daemon, journal, Journal};
 use tracing::{debug, info, warn};
+use wait_timeout::ChildExt;
 
 const BIND_BUS_FILE: &str = "/sys/bus/pci/drivers/xhci_hcd/bind";
 const UNBIND_BUS_FILE: &str = "/sys/bus/pci/drivers/xhci_hcd/unbind";
+const SCRIPT_TIMEOUT: u64 = 20; // seconds
 
 pub struct Monitor {
     bus_id: String,
     bus_rebind_delay: u64,
     next_fail_check_delay: u64,
-    pre_unbind_cmd: String,
-    post_rebind_cmd: String,
+    pre_unbind_script: String,
+    post_rebind_script: String,
 }
 
 impl Monitor {
@@ -26,8 +24,8 @@ impl Monitor {
             bus_id: settings.get::<String>("bus-id")?,
             bus_rebind_delay: settings.get::<u64>("bus-rebind-delay")?,
             next_fail_check_delay: settings.get::<u64>("next-fail-check-delay")?,
-            pre_unbind_cmd: settings.get::<String>("pre-unbind-cmd")?,
-            post_rebind_cmd: settings.get::<String>("post-rebind-cmd")?,
+            pre_unbind_script: settings.get::<String>("pre-unbind-script")?,
+            post_rebind_script: settings.get::<String>("post-rebind-script")?,
         })
     }
 
@@ -66,10 +64,10 @@ impl Monitor {
                     info!("xhci_hcd failed, {log_msg}");
 
                     // Run pre unbind command
-                    if !self.pre_unbind_cmd.is_empty() {
-                        info!("Run pre unbind command {}", self.pre_unbind_cmd);
-                        if let Err(err) = self.run_cmd(&self.pre_unbind_cmd) {
-                            warn!("Failed to execute {}, {err}", self.pre_unbind_cmd);
+                    if !self.pre_unbind_script.is_empty() {
+                        info!("Run pre unbind command {}", self.pre_unbind_script);
+                        if let Err(err) = self.run_script(&self.pre_unbind_script, SCRIPT_TIMEOUT) {
+                            warn!("Failed to execute {}, {err}", self.pre_unbind_script);
                         }
                     }
 
@@ -93,10 +91,11 @@ impl Monitor {
                     }
 
                     // Run post rebind command
-                    if !self.post_rebind_cmd.is_empty() {
-                        info!("Run post rebind command {}", self.post_rebind_cmd);
-                        if let Err(err) = self.run_cmd(&self.post_rebind_cmd) {
-                            warn!("Failed to execute {}, {err}", self.post_rebind_cmd);
+                    if !self.post_rebind_script.is_empty() {
+                        info!("Run post rebind command {}", self.post_rebind_script);
+                        if let Err(err) = self.run_script(&self.post_rebind_script, SCRIPT_TIMEOUT)
+                        {
+                            warn!("Failed to execute {}, {err}", self.post_rebind_script);
                         }
                     }
 
@@ -130,18 +129,22 @@ impl Monitor {
         Ok(fail_regex.is_match(log_msg))
     }
 
-    fn run_cmd(&self, cmd: &str) -> Result<()> {
-        match cmd!(cmd).stderr_to_stdout().reader() {
-            Ok(reader) => {
-                let lines = BufReader::new(reader)
-                    .lines()
-                    .filter_map(Result::ok)
-                    .collect::<Vec<String>>()
-                    .join("\n");
-                info!("{}", lines);
+    fn run_script(&self, path: &str, timeout: u64) -> Result<()> {
+        let mut script = match Command::new(path).spawn() {
+            Ok(script) => script,
+            Err(err) => bail!("Failed to execute {path}, {err}"),
+        };
+
+        match script.wait_timeout(Duration::from_secs(timeout))? {
+            Some(exit_code) => {
+                info!("Finished {path}, {exit_code}");
                 Ok(())
             }
-            Err(err) => bail!("Failed to execute {cmd}, {err}"),
+            None => {
+                script.kill()?;
+                script.wait()?;
+                bail!("Execute timeout {path}, >= {timeout} seconds")
+            }
         }
     }
 

@@ -17,10 +17,10 @@
 #
 # next-fail-check-delay = 300
 
-# Command to run once after bus failure is found (run before unbind bus)
+# Script to run once after bus failure is found (run before unbind bus)
 #
-# pre-unbind-cmd = "/usr/local/bin/xhci_hcd-rebind-sysinfo.sh"
+# pre-unbind-script = "/usr/local/bin/xhci_hcd-rebind-sysinfo.sh"
 
-# Command to run once after rebind bus
+# Script to run once after rebind bus
 #
-# post-rebind-cmd = ""
+# post-rebind-script = ""

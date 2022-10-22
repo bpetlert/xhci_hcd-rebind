@@ -6,8 +6,8 @@ pub fn load_config(config_file: Option<PathBuf>) -> Result<ConfigBuilder<Default
     let mut settings = Config::builder()
         .set_default("bus-rebind-delay", 3)?
         .set_default("next-fail-check-delay", 300)?
-        .set_default("pre-unbind-cmd", "")?
-        .set_default("post-rebind-cmd", "")?;
+        .set_default("pre-unbind-script", "")?
+        .set_default("post-rebind-script", "")?;
 
     if let Some(mut config_file) = config_file {
         config_file.set_extension("");

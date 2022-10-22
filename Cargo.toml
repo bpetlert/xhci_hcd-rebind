@@ -18,7 +18,6 @@ publish = false
 anyhow = "1.0.65"
 clap = { version = "4.0.17", features = ["derive"] }
 config = { version = "0.13.2", default-features = false, features = ["toml"] }
-duct = "0.13.5"
 mimalloc = "0.1.30"
 once_cell = "1.15.0"
 regex = "1.6.0"
@@ -33,3 +32,4 @@ tracing-subscriber = { version = "0.3.16", features = [
     "env-filter",
     "fmt",
 ], default-features = false }
+wait-timeout = "0.2.0"
