@@ -1,5 +1,7 @@
 [Unit]
 Description=xhci_hcd bus failure monitor
+Requires=systemd-journald.socket
+After=systemd-journald.socket
 
 [Service]
 Type=notify
