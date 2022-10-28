@@ -2,8 +2,6 @@
 :toc:
 :toc-placement!:
 
-image:https://img.shields.io/github/license/bpetlert/xhci_hcd-rebind?style=flat-square["License: MIT",link=./LICENSE]
-
 This software is crated to temporarily fix the error of 'USB 3.0 to ethernet adapter' on xhci_hcd bus.
 
 .The example of error message:
