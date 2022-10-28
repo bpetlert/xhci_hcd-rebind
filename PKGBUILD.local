@@ -1,6 +1,6 @@
 # Maintainer: Bhanupong Petchlert <bpetlert@gmail.com>
 pkgname=xhci_hcd-rebind
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="A service for monitoring xhci_hcd bus, restart if bus failure"
 arch=('x86_64')
