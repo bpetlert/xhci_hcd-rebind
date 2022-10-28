@@ -2,7 +2,7 @@
 :toc:
 :toc-placement!:
 
-This software is crated to temporarily fix the error of 'USB 3.0 to ethernet adapter' on xhci_hcd bus.
+This software is created to temporarily fix the error of 'USB 3.0 to ethernet adapter' on xhci_hcd bus.
 
 .The example of error message:
 [source,console]
@@ -44,7 +44,7 @@ $ systemctl start xhci_hcd-rebind.service
 
 == Configuration
 
-The configuration is place in `/etc/systemd/xhci_hcd-rebind.toml` file.
+The configuration is placed in `/etc/systemd/xhci_hcd-rebind.toml` file.
 
 .Example of configurations
 [source,toml]
