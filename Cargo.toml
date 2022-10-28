@@ -4,12 +4,12 @@ version = "0.2.0"
 
 authors = ["Bhanupong Petchlert <bpetlert@gmail.com>"]
 
-description = "Monitor xhci_hcd bus, restart if bus failure"
-documentation = ""
-homepage = ""
-license = ""
-readme = ""
-repository = ""
+description = "A program to monitor xhci_hcd bus, restart if bus failure"
+documentation = "https://github.com/bpetlert/xhci_hcd-rebind"
+homepage = "https://github.com/bpetlert/xhci_hcd-rebind"
+license = "MIT"
+readme = "README.adoc"
+repository = "https://github.com/bpetlert/xhci_hcd-rebind"
 
 edition = "2021"
 publish = false
