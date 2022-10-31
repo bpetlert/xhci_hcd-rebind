@@ -105,6 +105,11 @@ impl Monitor {
                         self.next_fail_check_delay
                     );
                     std::thread::sleep(std::time::Duration::from_secs(self.next_fail_check_delay));
+
+                    // Go to end of journal
+                    journal.seek_tail()?;
+                    while journal.next_skip(1)? > 0 {}
+
                     info!("Wait for next xhci_hcd error...");
                 }
             }
