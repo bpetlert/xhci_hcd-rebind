@@ -1,4 +1,5 @@
-use anyhow::{bail, Context, Result};
+use crate::{args::Arguments, monitor::Monitor};
+use anyhow::{bail, Result};
 use clap::Parser;
 use mimalloc::MiMalloc;
 use std::collections::HashMap;
@@ -12,11 +13,18 @@ mod args;
 mod monitor;
 mod settings;
 
-use crate::{args::Arguments, monitor::Monitor};
-
 fn main() -> Result<()> {
+    let filter =
+        EnvFilter::try_from_default_env().unwrap_or(EnvFilter::try_new("xhci_hcd_rebind=info")?);
+    if let Err(err) = tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .without_time()
+        .try_init()
+    {
+        bail!("Failed to initialize tracing subscriber: {err}");
+    }
+
     let arguments = Arguments::parse();
-    init_log().context("Failed to initialize logging")?;
     debug!("Run with {:?}", arguments);
 
     if !arguments.config_file.exists() {
@@ -39,20 +47,4 @@ fn main() -> Result<()> {
     );
 
     Monitor::new(settings)?.listen()
-}
-
-fn init_log() -> Result<()> {
-    let filter = match EnvFilter::try_from_env("RUST_LOG") {
-        Ok(f) => f,
-        Err(_) => EnvFilter::try_new("xhci_hcd_rebind=info")?,
-    };
-    if let Err(err) = tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .without_time()
-        .try_init()
-    {
-        bail!("Failed to initialize tracing subscriber: {err}");
-    }
-
-    Ok(())
 }
