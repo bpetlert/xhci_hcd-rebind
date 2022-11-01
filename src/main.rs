@@ -44,7 +44,7 @@ fn main() -> Result<()> {
 fn init_log() -> Result<()> {
     let filter = match EnvFilter::try_from_env("RUST_LOG") {
         Ok(f) => f,
-        Err(_) => EnvFilter::try_new("xhci_hcd_rebind=warn")?,
+        Err(_) => EnvFilter::try_new("xhci_hcd_rebind=info")?,
     };
     if let Err(err) = tracing_subscriber::fmt()
         .with_env_filter(filter)
