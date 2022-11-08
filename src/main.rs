@@ -2,7 +2,7 @@ use crate::{args::Arguments, monitor::Monitor};
 use anyhow::{bail, Result};
 use clap::Parser;
 use mimalloc::MiMalloc;
-use std::collections::HashMap;
+use std::{collections::HashMap, io};
 use tracing::debug;
 use tracing_subscriber::EnvFilter;
 
@@ -19,6 +19,7 @@ fn main() -> Result<()> {
     if let Err(err) = tracing_subscriber::fmt()
         .with_env_filter(filter)
         .without_time()
+        .with_writer(io::stderr)
         .try_init()
     {
         bail!("Failed to initialize tracing subscriber: {err}");
