@@ -5,7 +5,7 @@ pkgrel=1
 pkgdesc="A service for monitoring xhci_hcd bus, restart if bus failure"
 arch=('x86_64')
 url="https://github.com/bpetlert/xhci_hcd-rebind"
-license=('MIT')
+license=('GPL-3.0-or-later')
 depends=('systemd')
 makedepends=(cargo)
 options=(!lto)
@@ -48,5 +48,5 @@ package() {
   install -Dm644 "${startdir}/xhci_hcd-rebind.toml" "$pkgdir/etc/systemd/xhci_hcd-rebind.toml"
 
   install -Dm644 "${startdir}/README.adoc" "$pkgdir/usr/share/doc/${pkgname}/README.adoc"
-  install -Dm644 "${startdir}/LICENSE" "$pkgdir/usr/share/licenses/${pkgname}/LICENSE"
+  install -Dm644 "${startdir}/COPYING" "$pkgdir/usr/share/licenses/${pkgname}/COPYING"
 }

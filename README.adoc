@@ -81,4 +81,4 @@ The `bus-id` is required, other settings are optional.
 
 == License
 
-*link:./LICENSE[MIT license]*
+*link:./COPYING[GNU General Public License v3.0 or later]*
