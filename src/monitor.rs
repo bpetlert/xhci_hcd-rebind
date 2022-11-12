@@ -1,8 +1,13 @@
 use anyhow::{bail, Result};
 use config::{builder::DefaultState, ConfigBuilder};
-use std::{fs, io::Write, process::Command, time::Duration};
+use std::{
+    fs,
+    io::Write,
+    process::Command,
+    time::{Duration, Instant},
+};
 use systemd::{daemon, journal, Journal};
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 use wait_timeout::ChildExt;
 
 const BIND_BUS_FILE: &str = "/sys/bus/pci/drivers/xhci_hcd/bind";
@@ -13,6 +18,7 @@ pub struct Monitor {
     bus_id: String,
     bus_rebind_delay: u64,
     next_fail_check_delay: u64,
+    last_found: Option<Instant>,
     pre_unbind_script: String,
     post_rebind_script: String,
 }
@@ -26,10 +32,11 @@ impl Monitor {
             next_fail_check_delay: settings.get::<u64>("next-fail-check-delay")?,
             pre_unbind_script: settings.get::<String>("pre-unbind-script")?,
             post_rebind_script: settings.get::<String>("post-rebind-script")?,
+            last_found: None,
         })
     }
 
-    pub fn listen(self) -> Result<()> {
+    pub fn listen(mut self) -> Result<()> {
         let mut journal: Journal = journal::OpenOptions::default()
             .system(true)
             .local_only(true)
@@ -47,72 +54,85 @@ impl Monitor {
 
         debug!("Notify systemd that we are ready :)");
         if !daemon::notify(false, vec![("READY", "1")].iter())? {
-            bail!("Cannot notify systemd, READY=1");
+            error!("Cannot notify systemd, READY=1");
         }
 
         let notify_msg = format!("Start monitor xhci_hcd failure on bus {}", self.bus_id);
         if !daemon::notify(false, vec![("STATUS", &notify_msg)].iter())? {
-            bail!("Cannot notify systemd, STATUS={notify_msg}");
+            error!("Cannot notify systemd, STATUS={notify_msg}");
         }
+
         info!("{notify_msg}");
+
+        // Go to end of journal before start waiting for new entry
+        journal.seek_tail()?; // move to the position after the most recent available entry.
+        if journal.previous()? != 1 {
+            bail!("Cannot move to the most recent journal entry");
+        }
+
         loop {
-            if let Some(entry) = journal.await_next_entry(None)? {
-                if let Some(log_msg) = entry.get("MESSAGE") {
-                    if !self.is_fail(log_msg)? {
-                        continue;
+            // Wait for new journal entry
+            let entry = match journal.next_entry()? {
+                Some(new_entry) => new_entry,
+                None => loop {
+                    if let Some(new_entry) = journal.await_next_entry(None)? {
+                        break new_entry;
                     }
-                    info!("xhci_hcd failed, {log_msg}");
+                },
+            };
 
-                    // Run pre unbind command
-                    if !self.pre_unbind_script.is_empty() {
-                        info!("Run pre unbind command {}", self.pre_unbind_script);
-                        if let Err(err) = self.run_script(&self.pre_unbind_script, SCRIPT_TIMEOUT) {
-                            warn!("Failed to execute {}, {err}", self.pre_unbind_script);
-                        }
-                    }
+            let Some(log_msg) = entry.get("MESSAGE") else {
+                continue;
+            };
+            debug!("MESSAGE: {log_msg}");
 
-                    // Unbind bus
-                    info!("Try to unbind bus {}", self.bus_id);
-                    if let Err(err) = self.write_sysfs(UNBIND_BUS_FILE, &self.bus_id) {
-                        warn!("{err}");
-                        continue;
-                    } else {
-                        info!("Successfully unbind bus {}", self.bus_id);
-                    }
+            if !self.is_fail(log_msg)? && self.in_next_check_delay()? {
+                continue;
+            }
 
-                    // Rebind bus
-                    std::thread::sleep(std::time::Duration::from_secs(self.bus_rebind_delay));
-                    info!("Try to rebind bus {}", self.bus_id);
-                    if let Err(err) = self.write_sysfs(BIND_BUS_FILE, &self.bus_id) {
-                        warn!("{err}");
-                        continue;
-                    } else {
-                        info!("Successfully rebind bus {}", self.bus_id);
-                    }
+            info!("xhci_hcd failed, {log_msg}");
 
-                    // Run post rebind command
-                    if !self.post_rebind_script.is_empty() {
-                        info!("Run post rebind command {}", self.post_rebind_script);
-                        if let Err(err) = self.run_script(&self.post_rebind_script, SCRIPT_TIMEOUT)
-                        {
-                            warn!("Failed to execute {}, {err}", self.post_rebind_script);
-                        }
-                    }
-
-                    // Delay for next bus failure checking
-                    info!(
-                        "Delay {} seconds for next bus failure checking...",
-                        self.next_fail_check_delay
-                    );
-                    std::thread::sleep(std::time::Duration::from_secs(self.next_fail_check_delay));
-
-                    // Go to end of journal
-                    journal.seek_tail()?;
-                    while journal.next_skip(1)? > 0 {}
-
-                    info!("Wait for next xhci_hcd error...");
+            // Run pre unbind command
+            if !self.pre_unbind_script.is_empty() {
+                info!("Run pre unbind command {}", self.pre_unbind_script);
+                if let Err(err) = self.run_script(&self.pre_unbind_script, SCRIPT_TIMEOUT) {
+                    warn!("Failed to execute {}, {err}", self.pre_unbind_script);
                 }
             }
+
+            // Unbind bus
+            info!("Try to unbind bus {}", self.bus_id);
+            if let Err(err) = self.write_sysfs(UNBIND_BUS_FILE, &self.bus_id) {
+                warn!("{err}");
+                continue;
+            } else {
+                info!("Successfully unbind bus {}", self.bus_id);
+            }
+
+            // Rebind bus
+            std::thread::sleep(std::time::Duration::from_secs(self.bus_rebind_delay));
+            info!("Try to rebind bus {}", self.bus_id);
+            if let Err(err) = self.write_sysfs(BIND_BUS_FILE, &self.bus_id) {
+                warn!("{err}");
+                continue;
+            } else {
+                info!("Successfully rebind bus {}", self.bus_id);
+            }
+
+            // Run post rebind command
+            if !self.post_rebind_script.is_empty() {
+                info!("Run post rebind command {}", self.post_rebind_script);
+                if let Err(err) = self.run_script(&self.post_rebind_script, SCRIPT_TIMEOUT) {
+                    warn!("Failed to execute {}, {err}", self.post_rebind_script);
+                }
+            }
+
+            // Delay for next bus failure checking
+            info!(
+                "Delay {} seconds for next bus failure checking...",
+                self.next_fail_check_delay
+            );
+            self.last_found = Some(Instant::now());
         }
     }
 
@@ -132,6 +152,16 @@ impl Monitor {
         };
 
         Ok(fail_regex.is_match(log_msg))
+    }
+
+    fn in_next_check_delay(&self) -> Result<bool> {
+        if self.last_found.is_some()
+            && self.last_found.unwrap().elapsed() <= Duration::from_secs(self.next_fail_check_delay)
+        {
+            debug!("Still in next check delay");
+            return Ok(true);
+        }
+        Ok(false)
     }
 
     fn run_script(&self, path: &str, timeout: u64) -> Result<()> {
