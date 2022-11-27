@@ -1,8 +1,11 @@
 = xhci_hcd-rebind
 :toc:
 :toc-placement!:
+:icons: font
 
-This software is created to temporarily fix the error of 'USB 3.0 to ethernet adapter' on xhci_hcd bus.
+IMPORTANT: Users should migrate to https://github.com/bpetlert/journald-broker[journald-broker]
+
+This software is created to temporarily fix the error of "USB 3.0 to ethernet adapter" on xhci_hcd bus.
 
 .The example of error message:
 [source,console]
@@ -21,8 +24,8 @@ toc::[]
 
 == Disclaimer
 
-*DO NOT USE THIS SOFTWARE FOR ANY STORAGE DEVICES THAT CONNECT TO XHCI_HCD BUS.*
-This software is meant for temporary solution to the problem of 'USB 3.0 to ethernet adapter' on xhci_hcd bus only.
+CAUTION: *DO NOT USE THIS SOFTWARE FOR ANY STORAGE DEVICES THAT CONNECT TO XHCI_HCD BUS.*
+This software is meant for temporary solution to the problem of "USB 3.0 to ethernet adapter" on xhci_hcd bus only.
 
 == Installation
 
