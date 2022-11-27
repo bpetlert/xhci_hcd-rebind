@@ -1,7 +1,15 @@
 = xhci_hcd-rebind
 :toc:
 :toc-placement!:
-:icons: font
+ifndef::env-github[:icons: font]
+ifdef::env-github[]
+:status:
+:caution-caption: :fire:
+:important-caption: :exclamation:
+:note-caption: :paperclip:
+:tip-caption: :bulb:
+:warning-caption: :warning:
+endif::[]
 
 IMPORTANT: Users should migrate to https://github.com/bpetlert/journald-broker[journald-broker]
 
